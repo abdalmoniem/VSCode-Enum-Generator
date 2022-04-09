@@ -1,5 +1,6 @@
 {
 	"name": "enum-hamming-distance-generator",
+	"publisher": "AbdAlMoniem-AlHifnawy",
 	"displayName": "Enum Hamming Distance Generator",
 	"description": "Generate / Convert enums with values with hamming distances between them",
 	"version": "1.3.0",
@@ -33,6 +34,7 @@
 		"C++",
 		"Snippets"
 	],
+	"icon": "media/extension_icon.png",
 	"activationEvents": [
 		"onLanguage:c",
 		"onLanguage:cpp"

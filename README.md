@@ -2,7 +2,7 @@
 
 An extension to generate enums with variable number of members and values with a defined hamming distance between them
 
-![screenshot](https://github.com/abdalmoniem/VSCode-Enum-Generator/raw/master/media/aimatedScreenshot.gif)
+![animatedScreenshot](https://github.com/abdalmoniem/VSCode-Enum-Generator/raw/main/media/aimatedScreenshot.gif)
 
 ## Features
 1. pre-made snippets for 8-16 bit enums with 5 members and 3 hamming distance between them, you can invoke these snippets by typing `ech`
