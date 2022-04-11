@@ -1,4 +1,4 @@
-# VSCode - Enum Hamming Distance Generator
+# VSCode - Enum Generator
 
 An extension to generate enums with variable number of members and values with a defined hamming distance between them
 
