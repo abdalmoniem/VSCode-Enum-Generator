@@ -1,9 +1,9 @@
 {
-	"name": "enum-hamming-distance-generator",
+	"name": "enum-generator",
 	"publisher": "AbdAlMoniem-AlHifnawy",
-	"displayName": "Enum Hamming Distance Generator",
+	"displayName": "Enum Generator",
 	"description": "Generate / Convert enums with values with hamming distances between them",
-	"version": "1.3.0",
+	"version": "1.9.3",
 	"engines": {
 		"vscode": "^1.66.0"
 	},

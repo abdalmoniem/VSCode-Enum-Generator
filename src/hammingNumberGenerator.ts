@@ -15,7 +15,7 @@ export enum Integers {
    HEXADECIMAL = 16
 }
 
-export function generateCodebook(
+export async function generateCodebook(
    bitWidth: number,
    size: number,
    hammingDistance: number,
@@ -23,43 +23,28 @@ export function generateCodebook(
    loopIterations: number,
    allowReduction: boolean,
    autoGenerate: boolean,
-   timeout: number): { hammingCodes: Array<string> | undefined, minHam: number | undefined } {
-
+   timeout: number): Promise<{ hammingCodes: Array<string> | undefined, minHam: number | undefined }> {
    if (hammingDistance >= bitWidth) {
       return { hammingCodes: undefined, minHam: undefined };
    }
 
-   let seen: Array<string> = new Array();
-   let hammingCodes: Array<string> = new Array();
+   const seen: Array<string> = new Array();
+   const hammingCodes: Array<string> = new Array();
    let iterations = loopIterations;
    let currentHammingDistance = hammingDistance;
 
    let start = Date.now();
 
    while (true) {
-      let testCandidate = getRandomBinStr(bitWidth);
-
-      while (seen.includes(testCandidate)) { testCandidate = getRandomBinStr(bitWidth); }
-
-      seen.push(testCandidate);
-
-      if (hammingCodes.length === 0) { hammingCodes.push(testCandidate); }
-      else {
-         let valid = true;
-         for (let word of hammingCodes) {
-            if ((testCandidate === word) || calculateHammingDistance(testCandidate, word) < currentHammingDistance) {
-               valid = false;
-               break;
-            }
-         }
-
-         if (valid) { hammingCodes.push(testCandidate); }
-      }
-
+      /*********************** exit conditions ********************/
       if ((hammingCodes.length >= size) && !autoGenerate) { break; }
-
       if (timeout > 0) {
-         if (Date.now() - start >= timeout) { break; }
+         if (Date.now() - start >= timeout) {
+            if (!allowReduction) { break; }
+            currentHammingDistance -= 1;
+
+            start = Date.now();
+         }
       } else {
          iterations -= 1;
          if (iterations <= 0) {
@@ -67,16 +52,32 @@ export function generateCodebook(
             currentHammingDistance -= 1;
             iterations = loopIterations;
          }
+      }
+      if (currentHammingDistance <= 0) { break; }
 
-         if (currentHammingDistance <= 0) { break; }
+      let testCandidate = getRandomBinStr(bitWidth);
+      if (seen.includes(testCandidate)) { continue; }
+      seen.push(testCandidate);
+
+      if (hammingCodes.length === 0) { hammingCodes.push(testCandidate); }
+      else {
+         let valid = true;
+         for (let word of hammingCodes) {
+            if ((testCandidate === word) || await calculateHammingDistance(testCandidate, word) < currentHammingDistance) {
+               valid = false;
+               break;
+            }
+         }
+
+         if (valid) { hammingCodes.push(testCandidate); }
       }
    }
 
    if (hammingCodes.length > 0) {
-      let minimums = [];
+      const minimums: Array<number> = new Array();
 
       for (let index = 0; index < hammingCodes.length - 1; index++) {
-         minimums.push(calculateHammingDistance(hammingCodes[index], hammingCodes[index + 1]));
+         minimums.push(await calculateHammingDistance(hammingCodes[index], hammingCodes[index + 1]));
       }
 
       let minHam = minimums[0];
@@ -112,7 +113,7 @@ export function generateCodebook(
 export function getRandomBinStr(width: number): string {
    let binaryString = '';
    for (let i = 0; i < width; i++) {
-      let randomBit = Math.floor(Math.random() * 2);
+      const randomBit = Math.floor(Math.random() * 2);
 
       binaryString += randomBit.toString();
    }
@@ -120,13 +121,13 @@ export function getRandomBinStr(width: number): string {
    return binaryString;
 }
 
-export function calculateHammingDistance(s1: string, s2: string) {
-   let n1 = parseInt(s1, 2);
-   let n2 = parseInt(s2, 2);
+export async function calculateHammingDistance(s1: string, s2: string): Promise<number> {
+   const n1 = parseInt(s1, 2);
+   const n2 = parseInt(s2, 2);
 
    let onesCount = 0;
 
-   for (let bit of dec2Bin(n1 ^ n2)) {
+   for (let bit of await binary(n1 ^ n2)) {
       if (bit === '1') { onesCount += 1; }
    }
 
@@ -139,7 +140,7 @@ export function convertBinarCodeToNumberString(code: string, bitWidth: number, r
    else if (representation === Integers.HEXADECIMAL) { return (`0x${parseInt(code, 2).toString(16)}`).padStart(bitWidth / 4, '0'); }
 }
 
-export function dec2Bin(dec: number) {
+export async function binary(dec: number): Promise<string> {
    if (dec >= 0) {
       return dec.toString(2);
    }
