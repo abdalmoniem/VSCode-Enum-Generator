@@ -122,12 +122,12 @@ export function getRandomBinStr(width: number): string {
 }
 
 export async function calculateHammingDistance(s1: string, s2: string): Promise<number> {
-   const n1 = parseInt(s1, 2);
-   const n2 = parseInt(s2, 2);
+   const n1 = parseBigInt(s1);
+   const n2 = parseBigInt(s2);
 
    let onesCount = 0;
 
-   for (let bit of await binary(n1 ^ n2)) {
+   for (let bit of await binary((n1 as bigint) ^ (n2 as bigint))) {
       if (bit === '1') { onesCount += 1; }
    }
 
@@ -136,12 +136,12 @@ export async function calculateHammingDistance(s1: string, s2: string): Promise<
 
 export function convertBinarCodeToNumberString(code: string, bitWidth: number, representation: Integers): string | undefined {
    if (representation === Integers.BINARY) { return code.padStart(bitWidth, '0'); }
-   else if (representation === Integers.DECIMAL) { return `${parseInt(code, 2)}`; }
-   else if (representation === Integers.HEXADECIMAL) { return (`0x${parseInt(code, 2).toString(16)}`).padStart(bitWidth / 4, '0'); }
+   else if (representation === Integers.DECIMAL) { return `${parseBigInt(code)}`; }
+   else if (representation === Integers.HEXADECIMAL) { return (`0x${parseBigInt(code).toString(16)}`).padStart(bitWidth / 4, '0'); }
 }
 
-export async function binary(dec: number): Promise<string> {
-   if (dec >= 0) {
+export async function binary(dec: BigInt): Promise<string> {
+   if (dec >= BigInt(0)) {
       return dec.toString(2);
    }
    else {
@@ -151,4 +151,17 @@ export async function binary(dec: number): Promise<string> {
       */
       return (~dec).toString(2);
    }
+}
+
+export function parseBigInt(binStr: string): BigInt {
+   const lastIndex = binStr.length - 1;
+   let total = BigInt(0);
+
+   for (let i = 0; i < binStr.length; i++) {
+      if (binStr[lastIndex - i] === '1') {
+         total += (BigInt(2) ** BigInt(i));
+      }
+   }
+
+   return total;
 }

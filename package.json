@@ -40,6 +40,15 @@
 		"onLanguage:cpp"
 	],
 	"main": "./out/extension.js",
+	"contributes": {
+		"commands":[
+			{
+				"category": "Enum Generator",
+				"command": "enum-generator.generateEnum",
+				"title": "Generate An Enum"
+			}
+		]
+	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p ./",
