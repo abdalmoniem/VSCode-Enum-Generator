@@ -59,8 +59,9 @@ export async function generateCodebook(
       if (seen.includes(testCandidate)) { continue; }
       seen.push(testCandidate);
 
-      if (hammingCodes.length === 0) { hammingCodes.push(testCandidate); }
-      else {
+      if (hammingCodes.length === 0) { 
+         hammingCodes.push(testCandidate);
+      } else {
          let valid = true;
          for (let word of hammingCodes) {
             if ((testCandidate === word) || await calculateHammingDistance(testCandidate, word) < currentHammingDistance) {
@@ -103,8 +104,7 @@ export async function generateCodebook(
       }
 
       return { hammingCodes, minHam };
-   }
-   else {
+   } else {
       console.error('Could not generate any codes with the given parameters');
    }
 
@@ -143,8 +143,7 @@ export function convertBinarCodeToNumberString(code: string, bitWidth: number, r
 export async function binary(dec: BigInt): Promise<string> {
    if (dec >= BigInt(0)) {
       return dec.toString(2);
-   }
-   else {
+   } else {
       /* Here you could represent the number in 2s compliment but this is not what 
          JS uses as its not sure how many bits are in your number range. There are 
          some suggestions https://stackoverflow.com/questions/10936600/javascript-decimal-to-binary-64-bit 

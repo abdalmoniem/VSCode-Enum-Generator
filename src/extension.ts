@@ -11,21 +11,151 @@
 import * as vscode from 'vscode';
 import { Integers, generateCodebook, calculateHammingDistance } from './hammingNumberGenerator';
 
+const enumRegex = /typedef\s*enum\s*{\s*(?:(?<memberName>\w+)\s*=?\s*(?<memberValue>(?:0b[01]+)|(?:0x[a-fA-F0-9]+)|(?:\d+))?,?\s*)+\s*}\s*\w+;/m;
+
 export function activate(context: vscode.ExtensionContext) {
 	const enumCompletionItemProvider = new EnumCompletionItemProvider();
 
 	context.subscriptions.push(
 		vscode.languages.registerCompletionItemProvider('c', enumCompletionItemProvider),
 		vscode.languages.registerCompletionItemProvider('cpp', enumCompletionItemProvider),
+
+		vscode.commands.registerCommand('enum-generator.convertEnum',
+			async () => await convertEnum()),
 		vscode.commands.registerCommand('enum-generator.generateEnum',
-			async (bitWidth, memberCount, hammingDistance) => await generateEnum(bitWidth, memberCount, hammingDistance))
+			async (bitWidth, memberCount, hammingDistance) => await generateEnum(bitWidth, memberCount, hammingDistance)),
+
+		vscode.window.onDidChangeTextEditorSelection(event =>
+			vscode.commands.executeCommand('setContext',
+				'canConvert',
+				enumRegex.test(
+					event.textEditor.document.getText(
+						event.textEditor.selection))))
 	);
 }
 
 // this method is called when your extension is deactivated
 export function deactivate() { }
 
-export async function generateEnum(bitWidth: number, memberCount: number, hammingDistance: number) {
+export async function convertEnum() {
+	const editor = vscode.window.activeTextEditor;
+	if (editor) {
+		const document = editor.document;
+		const selection = editor.selection;
+		const selectionText = document.getText(selection);
+
+		if (enumRegex.test(selectionText)) {
+			vscode.window.showInformationMessage('Valid Enum, Converting...');
+			let selectionTextLines = selectionText.split(/[\r\n]/);
+
+			if (selectionTextLines.length === 1) {
+				const lineRegex = /(?<enumHeader>typedef\s*enum\s*{)(?<members>\s*(?:(?<memberName>\w+)\s*=?\s*(?<memberValue>(?:0b[01]+)|(?:0x[a-fA-F0-9]+)|(?:\d+))?,?\s*)+\s*)(?<enumFooter>}\s*\w+;)/;
+
+				const match = lineRegex.exec(selectionTextLines[0]);
+				const members = match!.groups?.members.split(',').filter(value => value.trim().length > 0);
+
+				let convertedEnum = match!.groups?.enumHeader;
+
+				const { hammingCodes, minHam } = await generateCodebook(16, members!.length, 3,
+					Integers.HEXADECIMAL,
+					3000,
+					false,
+					false,
+					300);
+
+				if (hammingCodes !== undefined) {
+					members!.forEach((member, index) => {
+						let groups = /(?<filler1>.*?)(?<memberName>\w+)(?<filler2>\s*=?\s*)(?<memberValue>(?:0b[01]+)|(?:0x[a-fA-F0-9]+)|(?:\d+))?(?<filler3>.*)/.exec(member)?.groups;
+
+						convertedEnum += `${groups?.filler1}${groups?.memberName}${groups!.filler2.trim().length > 0 ? groups?.filler2 : '='}${hammingCodes[index]}${groups?.filler3}${index < members!.length - 1 ? ',' : ''}`;
+					});
+
+					convertedEnum! += match!.groups?.enumFooter;
+
+					editor.edit(editBuilder => editBuilder.replace(selection, convertedEnum!));
+				}
+			}
+
+			let memberCount = 0;
+			for (let line of selectionTextLines) {
+				if (/^(\s*)(?!typedef)(?<memberName>\w+)\s*=?\s*(?<memberValue>(?:0b[01]+)|(?:0x[a-fA-F0-9]+)|(?:\d+))?/.test(line)) {
+					memberCount += 1;
+				}
+			}
+
+			const { hammingCodes, minHam } = await generateCodebook(16, memberCount, 3,
+				Integers.HEXADECIMAL,
+				3000,
+				false,
+				false,
+				300);
+
+			if (hammingCodes !== undefined) {
+				let convertedEnum = '';
+				let codeIndex = 0;
+				selectionTextLines.forEach((line, index) => {
+					const lineRegex = /^(\s*)(?!typedef)(?<memberName>\w+)\s*=?\s*(?<memberValue>(?:0b[01]+)|(?:0x[a-fA-F0-9]+)|(?:\d+))?/;
+					if (lineRegex.test(line)) {
+						convertedEnum += `${line.replace(lineRegex, `$1$2 = ${hammingCodes[codeIndex]}`)}\n`;
+						codeIndex += 1;
+					} else {
+						convertedEnum += `${line}${index < selectionTextLines.length - 1 ? '\n' : ''}`;
+					}
+				});
+				editor.edit(editBuilder => editBuilder.replace(selection, convertedEnum));
+			}
+		} else {
+			vscode.window.showInformationMessage('Invalid Enum');
+		}
+	}
+}
+
+export async function generateEnum(bitWidth: number, memberCount: number, hammingDistance: number): Promise<void> {
+	if (bitWidth === undefined) {
+		let answer = await vscode.window.showInputBox(
+			{
+				prompt: 'Bit Width',
+				title: 'Enter Bit Width',
+				placeHolder: 'Enter Bit Width (ex. 128, 64, 32, etc...)',
+				ignoreFocusOut: true,
+				validateInput: text => /^\d+$/.test(text) ? null : 'not a valid number!'
+			});
+
+		if (answer) {
+			bitWidth = parseInt(answer);
+		}
+	}
+
+	if (memberCount === undefined) {
+		let answer = await vscode.window.showInputBox(
+			{
+				prompt: 'Member Count',
+				title: 'Enter Number of Members',
+				ignoreFocusOut: true,
+				placeHolder: 'Enter Number of Members (ex. 4, 5, 6, etc...)',
+				validateInput: text => /^\d+$/.test(text) ? null : 'not a valid number!'
+			});
+
+		if (answer) {
+			memberCount = parseInt(answer);
+		}
+	}
+
+	if (hammingDistance === undefined) {
+		let answer = await vscode.window.showInputBox(
+			{
+				prompt: 'Hamming Distance',
+				title: 'Enter Hamming Distance',
+				ignoreFocusOut: true,
+				placeHolder: 'Enter Hamming Distance (ex. 2, 3, 4, etc...)',
+				validateInput: text => /^\d+$/.test(text) ? null : 'not a valid number!'
+			});
+
+		if (answer) {
+			hammingDistance = parseInt(answer);
+		}
+	}
+
 	const editor = vscode.window.activeTextEditor;
 
 	if (editor) {
@@ -38,14 +168,14 @@ export async function generateEnum(bitWidth: number, memberCount: number, hammin
 
 		// console.log({ hammingCodes, minHam });
 		if (hammingCodes !== undefined) {
-			let snippet = 'typedef enum {\n';
+			let snippet = '';
 			for (let i = 0; i < memberCount; i++) {
-				snippet += `\${${i + 1}:MEMBER_${i + 1}} = ${hammingCodes[i] !== undefined ? hammingCodes[i] : 0x00}${i < memberCount - 1 ? ',' : ''}\n`;
+				snippet += `\t\${${i + 1}:MEMBER_${i + 1}} = ${hammingCodes[i] !== undefined ? hammingCodes[i] : 0x00}${i < memberCount - 1 ? ',' : ''}\n`;
 				if ((hammingCodes[i] !== undefined) && (hammingCodes[i + 1] !== undefined)) {
 					if (i < memberCount - 1) {
-						snippet += `/* hamming distance is ${await calculateHammingDistance(
-							parseInt(hammingCodes[i], Integers.HEXADECIMAL).toString(2),
-							parseInt(hammingCodes[i + 1], Integers.HEXADECIMAL).toString(2))} */\n`;
+						snippet += `\t/* hamming distance is ${await calculateHammingDistance(
+							BigInt(hammingCodes[i]).toString(2),
+							BigInt(hammingCodes[i + 1]).toString(2))} */\n`;
 					}
 				}
 			}
@@ -99,7 +229,7 @@ export class EnumCompletionItemProvider implements vscode.CompletionItemProvider
 
 		const enumSnippet = new vscode.CompletionItem(`${bitWidth}-bit enum count ${memberCount}, dis ${hammingDistance}`);
 		enumSnippet.detail = `${memberCount} member ${bitWidth}-bit Enum`;
-		enumSnippet.insertText = '';
+		enumSnippet.insertText = 'typedef enum {\n';
 		enumSnippet.filterText = filterText;
 		enumSnippet.kind = vscode.CompletionItemKind.Snippet;
 		enumSnippet.documentation =
